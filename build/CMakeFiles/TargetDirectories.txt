@@ -1,0 +1,3 @@
+/home/prashanth/linux-joystick/build/CMakeFiles/virtual_remote_server.dir
+/home/prashanth/linux-joystick/build/CMakeFiles/edit_cache.dir
+/home/prashanth/linux-joystick/build/CMakeFiles/rebuild_cache.dir

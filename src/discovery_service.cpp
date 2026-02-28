@@ -1,39 +1,87 @@
-#include <iostream>
+#include "discovery_service.h"
+
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <unistd.h>
+
+#include <cerrno>
 #include <cstring>
 
-int main(){
+DiscoveryService::DiscoveryService()
+    : sockfd_(-1), discovery_port_(0), control_port_(0), vibration_port_(0), running_(false) {}
 
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+DiscoveryService::~DiscoveryService() { stop(); }
 
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(9002);
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
+bool DiscoveryService::start(int discovery_port, int control_port, int vibration_tcp_port) {
+    discovery_port_ = discovery_port;
+    control_port_ = control_port;
+    vibration_port_ = vibration_tcp_port;
 
-    bind(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    sockfd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd_ < 0) {
+        last_error_ = std::strerror(errno);
+        return false;
+    }
 
-    char buffer[1024];
-    sockaddr_in clientAddr{};
-    socklen_t len = sizeof(clientAddr);
+    int reuse = 1;
+    setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    std::cout << "Discovery Service Running...\n";
+    sockaddr_in server_addr {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(discovery_port_);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 
-    while(true){
+    if (bind(sockfd_, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) < 0) {
+        last_error_ = std::strerror(errno);
+        close(sockfd_);
+        sockfd_ = -1;
+        return false;
+    }
 
-        int n = recvfrom(sock, buffer, sizeof(buffer), 0,
-                        (sockaddr*)&clientAddr, &len);
+    running_ = true;
+    worker_ = std::thread(&DiscoveryService::runLoop, this);
+    return true;
+}
 
-        if(n > 0){
-            std::string msg(buffer, n);
+void DiscoveryService::runLoop() {
+    constexpr char query[] = "WHO_IS_CONTROLLER";
 
-            if(msg == "WHO_IS_CONTROLLER"){
-                std::string reply = "CONTROLLER_AVAILABLE";
+    while (running_) {
+        char buffer[512] = {};
+        sockaddr_in client_addr {};
+        socklen_t client_len = sizeof(client_addr);
 
-                sendto(sock, reply.c_str(), reply.size(), 0,
-                      (sockaddr*)&clientAddr, len);
-            }
+        int n = recvfrom(sockfd_, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr*>(&client_addr),
+                         &client_len);
+
+        if (n <= 0) {
+            continue;
+        }
+
+        std::string msg(buffer, n);
+        if (msg == query) {
+            std::string reply = "CONTROLLER_AVAILABLE;udp=" + std::to_string(control_port_) +
+                                ";tcp=" + std::to_string(vibration_port_);
+            sendto(sockfd_, reply.c_str(), reply.size(), 0, reinterpret_cast<sockaddr*>(&client_addr),
+                   client_len);
         }
     }
 }
+
+void DiscoveryService::stop() {
+    if (!running_) {
+        return;
+    }
+
+    running_ = false;
+    shutdown(sockfd_, SHUT_RDWR);
+
+    if (worker_.joinable()) {
+        worker_.join();
+    }
+
+    close(sockfd_);
+    sockfd_ = -1;
+}
+
+std::string DiscoveryService::lastError() const { return last_error_; }

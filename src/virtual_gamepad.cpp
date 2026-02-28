@@ -1,77 +1,113 @@
-#include <linux/uinput.h>
+#include "virtual_gamepad.h"
+
 #include <fcntl.h>
+#include <linux/uinput.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
+
+#include <cerrno>
 #include <cstring>
 #include <iostream>
 
-#include "virtual_gamepad.h"
 #include "gamepad_mapping.h"
 
-int fd;
+VirtualGamepad::VirtualGamepad() : fd_(-1) {}
 
-bool VirtualGamepad::init() {
-    fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-    if (fd < 0) {
-        std::cout << "Cannot open uinput\n";
+VirtualGamepad::~VirtualGamepad() {
+    if (fd_ >= 0) {
+        ioctl(fd_, UI_DEV_DESTROY);
+        close(fd_);
+    }
+}
+
+bool VirtualGamepad::setupAbsAxis(int axis, int min, int max) {
+    if (ioctl(fd_, UI_SET_ABSBIT, axis) < 0) {
+        last_error_ = std::strerror(errno);
         return false;
     }
 
-    ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    ioctl(fd, UI_SET_EVBIT, EV_ABS);
+    struct uinput_abs_setup abs_setup {};
+    abs_setup.code = axis;
+    abs_setup.absinfo.minimum = min;
+    abs_setup.absinfo.maximum = max;
+    abs_setup.absinfo.flat = 16;
+    abs_setup.absinfo.fuzz = 0;
+    abs_setup.absinfo.value = 0;
 
-    ioctl(fd, UI_SET_KEYBIT, GP_A);
-    ioctl(fd, UI_SET_KEYBIT, GP_B);
-    ioctl(fd, UI_SET_KEYBIT, GP_X);
-    ioctl(fd, UI_SET_KEYBIT, GP_Y);
+    if (ioctl(fd_, UI_ABS_SETUP, &abs_setup) < 0) {
+        last_error_ = std::strerror(errno);
+        return false;
+    }
 
-    ioctl(fd, UI_SET_KEYBIT, GP_L1);
-    ioctl(fd, UI_SET_KEYBIT, GP_R1);
+    return true;
+}
 
-    ioctl(fd, UI_SET_KEYBIT, GP_START);
-    ioctl(fd, UI_SET_KEYBIT, GP_SELECT);
+bool VirtualGamepad::init() {
+    fd_ = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
+    if (fd_ < 0) {
+        last_error_ = std::strerror(errno);
+        return false;
+    }
 
-    ioctl(fd, UI_SET_ABSBIT, GP_LX);
-    ioctl(fd, UI_SET_ABSBIT, GP_LY);
-    ioctl(fd, UI_SET_ABSBIT, GP_RX);
-    ioctl(fd, UI_SET_ABSBIT, GP_RY);
+    if (ioctl(fd_, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd_, UI_SET_EVBIT, EV_ABS) < 0) {
+        last_error_ = std::strerror(errno);
+        return false;
+    }
 
-    ioctl(fd, UI_SET_ABSBIT, GP_DPAD_X);
-    ioctl(fd, UI_SET_ABSBIT, GP_DPAD_Y);
+    int buttons[] = {GP_A, GP_B, GP_X, GP_Y, GP_L1, GP_R1, GP_START, GP_SELECT};
+    for (int button : buttons) {
+        if (ioctl(fd_, UI_SET_KEYBIT, button) < 0) {
+            last_error_ = std::strerror(errno);
+            return false;
+        }
+    }
 
-    struct uinput_setup usetup;
-    memset(&usetup, 0, sizeof(usetup));
+    if (!setupAbsAxis(GP_LX, -32768, 32767) || !setupAbsAxis(GP_LY, -32768, 32767) ||
+        !setupAbsAxis(GP_RX, -32768, 32767) || !setupAbsAxis(GP_RY, -32768, 32767) ||
+        !setupAbsAxis(GP_DPAD_X, -1, 1) || !setupAbsAxis(GP_DPAD_Y, -1, 1) ||
+        !setupAbsAxis(GP_L2, 0, 255) || !setupAbsAxis(GP_R2, 0, 255)) {
+        return false;
+    }
+
+    struct uinput_setup usetup {};
     usetup.id.bustype = BUS_USB;
     usetup.id.vendor = 0x1234;
     usetup.id.product = 0x5678;
-    strcpy(usetup.name, "Virtual Gamepad");
+    std::strncpy(usetup.name, "Virtual Remote Gamepad", UINPUT_MAX_NAME_SIZE - 1);
 
-    ioctl(fd, UI_DEV_SETUP, &usetup);
-    ioctl(fd, UI_DEV_CREATE);
+    if (ioctl(fd_, UI_DEV_SETUP, &usetup) < 0 || ioctl(fd_, UI_DEV_CREATE) < 0) {
+        last_error_ = std::strerror(errno);
+        return false;
+    }
 
-    sleep(1);
+    usleep(250000);
     return true;
 }
 
 void VirtualGamepad::sendButton(int button, int value) {
-    struct input_event ev{};
+    struct input_event ev {};
     ev.type = EV_KEY;
     ev.code = button;
     ev.value = value;
-    write(fd, &ev, sizeof(ev));
+    write(fd_, &ev, sizeof(ev));
 }
 
 void VirtualGamepad::sendAxis(int axis, int value) {
-    struct input_event ev{};
+    struct input_event ev {};
     ev.type = EV_ABS;
     ev.code = axis;
     ev.value = value;
-    write(fd, &ev, sizeof(ev));
+    write(fd_, &ev, sizeof(ev));
 }
 
 void VirtualGamepad::sync() {
-    struct input_event ev{};
+    struct input_event ev {};
     ev.type = EV_SYN;
     ev.code = SYN_REPORT;
     ev.value = 0;
-    write(fd, &ev, sizeof(ev));
+    write(fd_, &ev, sizeof(ev));
+}
+
+std::string VirtualGamepad::lastError() const {
+    return last_error_;
 }
