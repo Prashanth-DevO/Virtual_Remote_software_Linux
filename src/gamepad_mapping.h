@@ -27,3 +27,10 @@
 // --- DPAD ---
 #define GP_DPAD_X ABS_HAT0X
 #define GP_DPAD_Y ABS_HAT0Y
+
+// Thumbstick clicks
+#define GP_L3 BTN_THUMBL
+#define GP_R3 BTN_THUMBR
+
+// System / menu
+#define GP_HOME BTN_MODE

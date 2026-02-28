@@ -1,81 +1,126 @@
 #include "controller_engine.h"
-
-#include <algorithm>
-#include <cstdlib>
-#include <unordered_map>
-
+#include "protocol.h"
 #include "gamepad_mapping.h"
 
-namespace {
-int clampInt(int value, int min_v, int max_v) {
-    return std::max(min_v, std::min(value, max_v));
+#include <cstring>
+#include <iostream>
+#include <arpa/inet.h>
+#include <sys/time.h>
+
+ControllerEngine::ControllerEngine(VirtualGamepad* gp) : gamepad(gp) {}
+
+uint64_t ControllerEngine::nowUs() {
+    timeval tv{};
+    gettimeofday(&tv, nullptr);
+    return uint64_t(tv.tv_sec) * 1000000ULL + uint64_t(tv.tv_usec);
 }
-}  // namespace
 
-ControllerEngine::ControllerEngine(VirtualGamepad* gp) : gamepad_(gp) {}
+void ControllerEngine::neutral() {
+    gamepad->sendAxis(GP_LX, 0);
+    gamepad->sendAxis(GP_LY, 0);
+    gamepad->sendAxis(GP_RX, 0);
+    gamepad->sendAxis(GP_RY, 0);
 
-bool ControllerEngine::processButton(const std::string& key, const std::string& value) {
-    static const std::unordered_map<std::string, int> button_map = {
-        {"BTN_A", GP_A},       {"BTN_B", GP_B},     {"BTN_X", GP_X},
-        {"BTN_Y", GP_Y},       {"BTN_L1", GP_L1},   {"BTN_R1", GP_R1},
-        {"BTN_START", GP_START}, {"BTN_SELECT", GP_SELECT},
-    };
+    gamepad->sendAxis(GP_L2, 0);
+    gamepad->sendAxis(GP_R2, 0);
 
-    auto it = button_map.find(key);
-    if (it == button_map.end()) {
+    gamepad->sendAxis(GP_DPAD_X, 0);
+    gamepad->sendAxis(GP_DPAD_Y, 0);
+
+    gamepad->sendButton(GP_A, 0);
+    gamepad->sendButton(GP_B, 0);
+    gamepad->sendButton(GP_X, 0);
+    gamepad->sendButton(GP_Y, 0);
+    gamepad->sendButton(GP_L1, 0);
+    gamepad->sendButton(GP_R1, 0);
+    gamepad->sendButton(GP_L3, 0);
+    gamepad->sendButton(GP_R3, 0);
+    gamepad->sendButton(GP_SELECT, 0);
+    gamepad->sendButton(GP_START, 0);
+
+    gamepad->sync();
+}
+
+bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_in& sender) {
+    const uint64_t now = nowUs();
+     
+    // watchdog: neutral if silent, unlock after longer silence
+    if (lastPacketUs != 0) {
+        const uint64_t diffMs = (now - lastPacketUs) / 1000ULL;
+        if (diffMs > 200) neutral();
+        if (diffMs > 2000){ 
+            authorized_ip = 0;
+            locked_.store(false, std::memory_order_relaxed);
+            neutral();
+        }
+    }
+
+    if (len < (int)sizeof(ControllerPacketV1)) return false;
+
+    ControllerPacketV1 pkt{};
+    std::memcpy(&pkt, data, sizeof(pkt));
+
+    if (pkt.magic != UNIO_MAGIC || pkt.version != UNIO_V1 || pkt.size != sizeof(ControllerPacketV1)) {
         return false;
     }
 
-    int pressed = std::atoi(value.c_str()) != 0 ? 1 : 0;
-    gamepad_->sendButton(it->second, pressed);
+    // pairing lock
+    uint32_t ip = sender.sin_addr.s_addr;
+
+    if (!locked_.load(std::memory_order_relaxed)) {
+        authorized_ip = ip;
+        locked_.store(true, std::memory_order_relaxed);
+        std::cerr << "[lock] locking to ip=" << ip << "\n";
+    }
+
+    if (locked_.load(std::memory_order_relaxed) && ip != authorized_ip) {
+        // ignore packets from other IPs while locked
+        if (pkt.magic != UNIO_MAGIC || pkt.version != UNIO_V1 || pkt.size != sizeof(ControllerPacketV1)) {
+            std::cerr << "[proto] reject: magic=" << std::hex << pkt.magic << std::dec
+                      << " ver=" << pkt.version
+                      << " pkt.size=" << pkt.size
+                      << " expected=" << sizeof(ControllerPacketV1) << "\n";
+            return false;
+        }
+        return false;
+    }
+    lastPacketUs = now;
+
+    // axes
+    gamepad->sendAxis(GP_LX, pkt.lx);
+    gamepad->sendAxis(GP_LY, pkt.ly);
+    gamepad->sendAxis(GP_RX, pkt.rx);
+    gamepad->sendAxis(GP_RY, pkt.ry);
+
+    gamepad->sendAxis(GP_L2, pkt.l2);
+    gamepad->sendAxis(GP_R2, pkt.r2);
+
+    gamepad->sendAxis(GP_DPAD_X, pkt.dpad_x);
+    gamepad->sendAxis(GP_DPAD_Y, pkt.dpad_y);
+
+    // buttons
+    auto bit = [&](uint32_t b)->int { return (pkt.buttons >> b) & 1U; };
+
+    gamepad->sendButton(GP_A,      bit(BTNBIT_A));
+    gamepad->sendButton(GP_B,      bit(BTNBIT_B));
+    gamepad->sendButton(GP_X,      bit(BTNBIT_X));
+    gamepad->sendButton(GP_Y,      bit(BTNBIT_Y));
+    gamepad->sendButton(GP_L1,     bit(BTNBIT_L1));
+    gamepad->sendButton(GP_R1,     bit(BTNBIT_R1));
+    gamepad->sendButton(GP_L3,     bit(BTNBIT_L3));
+    gamepad->sendButton(GP_R3,     bit(BTNBIT_R3));
+    gamepad->sendButton(GP_SELECT, bit(BTNBIT_SELECT));
+    gamepad->sendButton(GP_START,  bit(BTNBIT_START));
+    // HOME optional if you mapped GP_HOME: gamepad->sendButton(GP_HOME, bit(BTNBIT_HOME));
+
+    gamepad->sync();
+    if (pkt.magic != UNIO_MAGIC || pkt.version != UNIO_V1 || pkt.size != sizeof(ControllerPacketV1)) {
+        std::cerr << "[proto] reject: magic=" << std::hex << pkt.magic << std::dec
+                  << " ver=" << pkt.version
+                  << " pkt.size=" << pkt.size
+                  << " expected=" << sizeof(ControllerPacketV1) << "\n";
+        return false;
+    }
+    
     return true;
-}
-
-bool ControllerEngine::processAxis(const std::string& key, const std::string& value) {
-    static const std::unordered_map<std::string, int> axis_map = {
-        {"LX", GP_LX},       {"LY", GP_LY},       {"RX", GP_RX},
-        {"RY", GP_RY},       {"DPAD_X", GP_DPAD_X}, {"DPAD_Y", GP_DPAD_Y},
-        {"L2", GP_L2},       {"R2", GP_R2},
-    };
-
-    auto it = axis_map.find(key);
-    if (it == axis_map.end()) {
-        return false;
-    }
-
-    int raw = std::atoi(value.c_str());
-    int final_value = raw;
-
-    if (it->second == GP_DPAD_X || it->second == GP_DPAD_Y) {
-        final_value = clampInt(raw, -1, 1);
-    } else if (it->second == GP_L2 || it->second == GP_R2) {
-        final_value = clampInt(raw, 0, 255);
-    } else {
-        final_value = clampInt(raw, -32768, 32767);
-    }
-
-    gamepad_->sendAxis(it->second, final_value);
-    return true;
-}
-
-bool ControllerEngine::process(const char* data, int len) {
-    if (data == nullptr || len <= 0) {
-        return false;
-    }
-
-    std::string msg(data, len);
-    auto sep = msg.find(':');
-    if (sep == std::string::npos) {
-        return false;
-    }
-
-    const std::string key = msg.substr(0, sep);
-    const std::string value = msg.substr(sep + 1);
-
-    if (processButton(key, value) || processAxis(key, value)) {
-        gamepad_->sync();
-        return true;
-    }
-
-    return false;
 }

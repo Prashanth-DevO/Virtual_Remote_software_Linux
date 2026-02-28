@@ -1,19 +1,28 @@
 #pragma once
-
-#include <string>
-
 #include "virtual_gamepad.h"
+#include <netinet/in.h>
+#include <cstdint>
+#include <atomic>
 
 class ControllerEngine {
 public:
     explicit ControllerEngine(VirtualGamepad* gp);
 
-    // Returns true if a control packet was handled.
-    bool process(const char* data, int len);
+    // returns true if packet applied
+    bool processPacket(const void* data, int len, const sockaddr_in& sender);
+
+    bool isPairedLocked() const {
+        return locked_.load(std::memory_order_relaxed);
+    }
 
 private:
-    bool processButton(const std::string& key, const std::string& value);
-    bool processAxis(const std::string& key, const std::string& value);
+    VirtualGamepad* gamepad;
 
-    VirtualGamepad* gamepad_;
+    // pairing + watchdog
+    std::atomic<bool> locked_{false};   // was bool locked
+    uint32_t authorized_ip = 0;         // sender.sin_addr.s_addr (written in UDP thread only)
+    uint64_t lastPacketUs = 0;          // written in UDP thread only
+
+    void neutral();
+    static uint64_t nowUs();
 };

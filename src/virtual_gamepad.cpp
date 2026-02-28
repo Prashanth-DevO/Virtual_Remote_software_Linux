@@ -30,7 +30,8 @@ bool VirtualGamepad::setupAbsAxis(int axis, int min, int max) {
     abs_setup.code = axis;
     abs_setup.absinfo.minimum = min;
     abs_setup.absinfo.maximum = max;
-    abs_setup.absinfo.flat = 16;
+    int range = max - min;
+    abs_setup.absinfo.flat = (range <= 2) ? 0 : 16;
     abs_setup.absinfo.fuzz = 0;
     abs_setup.absinfo.value = 0;
 
@@ -44,6 +45,9 @@ bool VirtualGamepad::setupAbsAxis(int axis, int min, int max) {
 
 bool VirtualGamepad::init() {
     fd_ = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
+    ioctl(fd_, UI_SET_KEYBIT, GP_L3);
+    ioctl(fd_, UI_SET_KEYBIT, GP_R3);
+    ioctl(fd_, UI_SET_KEYBIT, GP_HOME);
     if (fd_ < 0) {
         last_error_ = std::strerror(errno);
         return false;

@@ -1,0 +1,64 @@
+# ==============================
+# Build directories
+# ==============================
+build/
+build_local/
+
+# ==============================
+# CMake generated files
+# ==============================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+Makefile2
+*.cmake
+CMakeScripts/
+
+# Inside build folders (extra safety)
+build/CMakeFiles/
+build/CMakeCache.txt
+build/Makefile
+build/Makefile2
+build/*.cmake
+build/*.log
+build/*.txt
+
+# ==============================
+# Compiled binaries
+# ==============================
+server_main
+send_test_packet
+virtual_remote_server
+client
+*.out
+*.exe
+*.o
+*.so
+*.a
+
+# ==============================
+# Logs / temp files
+# ==============================
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+core
+core.*
+
+# ==============================
+# Editor / IDE
+# ==============================
+.vscode/
+.idea/
+
+# ==============================
+# OS junk
+# ==============================
+.DS_Store
+Thumbs.db
+
+# git rm -r --cached build
+# git rm -r --cached build_local
