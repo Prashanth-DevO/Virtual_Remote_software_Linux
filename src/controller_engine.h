@@ -12,7 +12,7 @@ public:
     bool processPacket(const void* data, int len, const sockaddr_in& sender);
 
     bool isPairedLocked() const {
-        return locked_.load(std::memory_order_relaxed);
+        return locked_.load(std::memory_order_acquire);
     }
 
 private:

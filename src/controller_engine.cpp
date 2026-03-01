@@ -50,7 +50,7 @@ bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_i
         if (diffMs > 200) neutral();
         if (diffMs > 2000){ 
             authorized_ip = 0;
-            locked_.store(false, std::memory_order_relaxed);
+            locked_.store(false, std::memory_order_release);
             neutral();
         }
     }
@@ -67,21 +67,16 @@ bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_i
     // pairing lock
     uint32_t ip = sender.sin_addr.s_addr;
 
-    if (!locked_.load(std::memory_order_relaxed)) {
+    bool is_locked = locked_.load(std::memory_order_acquire);
+    if (!is_locked) {
         authorized_ip = ip;
-        locked_.store(true, std::memory_order_relaxed);
+        locked_.store(true, std::memory_order_release);
+        is_locked = true;
         std::cerr << "[lock] locking to ip=" << ip << "\n";
     }
 
-    if (locked_.load(std::memory_order_relaxed) && ip != authorized_ip) {
+    if (is_locked && ip != authorized_ip) {
         // ignore packets from other IPs while locked
-        if (pkt.magic != UNIO_MAGIC || pkt.version != UNIO_V1 || pkt.size != sizeof(ControllerPacketV1)) {
-            std::cerr << "[proto] reject: magic=" << std::hex << pkt.magic << std::dec
-                      << " ver=" << pkt.version
-                      << " pkt.size=" << pkt.size
-                      << " expected=" << sizeof(ControllerPacketV1) << "\n";
-            return false;
-        }
         return false;
     }
     lastPacketUs = now;
@@ -114,13 +109,5 @@ bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_i
     // HOME optional if you mapped GP_HOME: gamepad->sendButton(GP_HOME, bit(BTNBIT_HOME));
 
     gamepad->sync();
-    if (pkt.magic != UNIO_MAGIC || pkt.version != UNIO_V1 || pkt.size != sizeof(ControllerPacketV1)) {
-        std::cerr << "[proto] reject: magic=" << std::hex << pkt.magic << std::dec
-                  << " ver=" << pkt.version
-                  << " pkt.size=" << pkt.size
-                  << " expected=" << sizeof(ControllerPacketV1) << "\n";
-        return false;
-    }
-    
     return true;
 }
