@@ -62,3 +62,7 @@ Thumbs.db
 
 # git rm -r --cached build
 # git rm -r --cached build_local
+
+# rm -rf build
+# cmake -S . -B build
+# cmake --build build -j

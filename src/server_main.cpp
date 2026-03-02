@@ -26,8 +26,6 @@ int main() {
 
     lj::DiscoveryService discovery(9002, [&] {
         lj::ServerStatus st;
-        // If you don't have this yet, temporarily set false.
-        // Then implement a real getter.
         st.paired_locked = engine.isPairedLocked();
 
         st.control_port = 9000;
