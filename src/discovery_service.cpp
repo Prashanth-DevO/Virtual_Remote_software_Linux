@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -40,7 +41,9 @@ static uint64_t stableServerId() {
         std::getline(f, id);
 
         // Remove whitespace/newlines just in case
-        id.erase(std::remove_if(id.begin(), id.end(), ::isspace), id.end());
+        id.erase(std::remove_if(id.begin(), id.end(),
+                                [](unsigned char c) { return std::isspace(c) != 0; }),
+                 id.end());
 
         if (!id.empty()) {
             cached = fnv1a64(reinterpret_cast<const uint8_t*>(id.data()), id.size());
@@ -52,6 +55,30 @@ static uint64_t stableServerId() {
     const char* s = "linux-joystick-fallback";
     cached = fnv1a64(reinterpret_cast<const uint8_t*>(s), std::strlen(s));
     return cached;
+}
+
+static uint64_t bswap64_u(uint64_t v) {
+    return ((v & 0x00000000000000FFull) << 56) |
+           ((v & 0x000000000000FF00ull) << 40) |
+           ((v & 0x0000000000FF0000ull) << 24) |
+           ((v & 0x00000000FF000000ull) << 8) |
+           ((v & 0x000000FF00000000ull) >> 8) |
+           ((v & 0x0000FF0000000000ull) >> 24) |
+           ((v & 0x00FF000000000000ull) >> 40) |
+           ((v & 0xFF00000000000000ull) >> 56);
+}
+
+static uint64_t htonll_u(uint64_t v) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return bswap64_u(v);
+#else
+    return v;
+#endif
+}
+
+static std::string makeLegacyReply(const ServerStatus& st) {
+    return "CONTROLLER_AVAILABLE;udp=" + std::to_string(st.control_port) +
+           ";tcp=" + std::to_string(st.feedback_port);
 }
 
 // -------------------- DiscoveryService --------------------
@@ -113,6 +140,8 @@ void DiscoveryService::stop() {
 
 void DiscoveryService::runLoop() {
     std::vector<uint8_t> buf(1024);
+    constexpr char kLegacyQuery[] = "WHO_IS_CONTROLLER";
+    constexpr size_t kLegacyQueryLen = sizeof(kLegacyQuery) - 1;
 
     // Simple per-IP rate limit: respond at most once per 150ms per source IP
     using Clock = std::chrono::steady_clock;
@@ -131,17 +160,6 @@ void DiscoveryService::runLoop() {
             continue;
         }
 
-        // Strict minimum size check
-        if ((size_t)n < sizeof(DiscoverReqV1)) continue;
-
-        DiscoverReqV1 req{};
-        std::memcpy(&req, buf.data(), sizeof(req));
-
-        // Validate request
-        if (req.magic != kDiscoveryMagic) continue;
-        if (req.version != kDiscoveryVersion) continue;
-        if (req.msg_type != (uint8_t)DiscMsgType::DiscoverReq) continue;
-
         // Rate limit by source IPv4
         uint32_t ipKey = src.sin_addr.s_addr; // network order is fine as a key
         auto now = Clock::now();
@@ -149,10 +167,39 @@ void DiscoveryService::runLoop() {
         if (it != lastReply.end() && (now - it->second) < minInterval) {
             continue;
         }
-        lastReply[ipKey] = now;
 
         // Build response from status provider
         ServerStatus st = status_fn_ ? status_fn_() : ServerStatus{};
+        lastReply[ipKey] = now;
+
+        // Backward compatibility: old text-based discovery request.
+        if ((size_t)n == kLegacyQueryLen &&
+            std::memcmp(buf.data(), kLegacyQuery, kLegacyQueryLen) == 0) {
+            const std::string reply = makeLegacyReply(st);
+            ::sendto(sock_, reply.data(), reply.size(), 0, (sockaddr*)&src, sizeof(src));
+            continue;
+        }
+
+        // Strict minimum size check for binary discovery request.
+        if ((size_t)n < sizeof(DiscoverReqV1)) continue;
+
+        DiscoverReqV1 req{};
+        std::memcpy(&req, buf.data(), sizeof(req));
+
+        // Accept both host-order (legacy implementation behavior) and network-order
+        // client packets to avoid silent interoperability failures.
+        bool request_network_order = false;
+        uint32_t req_nonce = req.nonce;
+        if (req.magic == kDiscoveryMagic) {
+            request_network_order = false;
+        } else if (ntohl(req.magic) == kDiscoveryMagic) {
+            request_network_order = true;
+            req_nonce = ntohl(req.nonce);
+        } else {
+            continue;
+        }
+        if (req.version != kDiscoveryVersion) continue;
+        if (req.msg_type != (uint8_t)DiscMsgType::DiscoverReq) continue;
 
         // Stable ID unless caller explicitly overrides
         if (st.server_id == 0) st.server_id = stableServerId();
@@ -170,13 +217,25 @@ void DiscoveryService::runLoop() {
         resp.version = kDiscoveryVersion;
         resp.msg_type = (uint8_t)DiscMsgType::DiscoverResp;
         resp.reserved = 0;
-        resp.nonce = req.nonce;
+        resp.nonce = req_nonce;
         resp.server_id = st.server_id;
         resp.control_port = st.control_port;
         resp.feedback_port = st.feedback_port;
         resp.proto_ver = st.controller_proto_ver;
         resp.name_len = (uint16_t)name.size();
         resp.flags = flags;
+
+        if (request_network_order) {
+            resp.magic = htonl(resp.magic);
+            resp.reserved = htons(resp.reserved);
+            resp.nonce = htonl(resp.nonce);
+            resp.server_id = htonll_u(resp.server_id);
+            resp.control_port = htons(resp.control_port);
+            resp.feedback_port = htons(resp.feedback_port);
+            resp.proto_ver = htons(resp.proto_ver);
+            resp.name_len = htons(resp.name_len);
+            resp.flags = htonl(resp.flags);
+        }
 
         std::vector<uint8_t> out(sizeof(DiscoverRespV1) + name.size());
         std::memcpy(out.data(), &resp, sizeof(resp));
