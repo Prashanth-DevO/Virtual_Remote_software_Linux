@@ -157,7 +157,7 @@ void DiscoveryService::runLoop() {
         // Stable ID unless caller explicitly overrides
         if (st.server_id == 0) st.server_id = stableServerId();
 
-        if (st.name.empty()) st.name = "linux-joystick";
+        if (st.name.empty()) st.name = "LINUX_VIRTUAL_BOX 🎮";
 
         uint32_t flags = st.flags;
         if (st.paired_locked) flags |= kFlagPairedLocked;
