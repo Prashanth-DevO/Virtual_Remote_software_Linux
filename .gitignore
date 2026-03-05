@@ -37,6 +37,11 @@ client
 *.so
 *.a
 
+# Release artifacts
+!dist/
+!dist/virtual_remote_server
+!dist/*.tar.gz
+
 # ==============================
 # Logs / temp files
 # ==============================
@@ -59,10 +64,3 @@ core.*
 # ==============================
 .DS_Store
 Thumbs.db
-
-# git rm -r --cached build
-# git rm -r --cached build_local
-
-# rm -rf build
-# cmake -S . -B build
-# cmake --build build -j
