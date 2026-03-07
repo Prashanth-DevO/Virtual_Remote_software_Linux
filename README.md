@@ -12,11 +12,11 @@ The executable built by this repo is `virtual_remote_server`.
 
 ## System Architecture
 
-![System Architecture](docs/demo/Welcome%20to%20FigJam%20%281%29.png)
+![System Architecture](docs/demo/Untitled%20%283%29.png)
 
 ## Server Initialization & Runtime Flow
 
-![Server Initialization and Runtime Flow](docs/demo/Untitled%20%283%29.png)
+![Server Initialization and Runtime Flow](docs/demo/Welcome%20to%20FigJam%20%281%29.png)
 
 ## Discovery Protocol
 
