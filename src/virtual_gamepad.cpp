@@ -45,9 +45,6 @@ bool VirtualGamepad::setupAbsAxis(int axis, int min, int max) {
 
 bool VirtualGamepad::init() {
     fd_ = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-    ioctl(fd_, UI_SET_KEYBIT, GP_L3);
-    ioctl(fd_, UI_SET_KEYBIT, GP_R3);
-    ioctl(fd_, UI_SET_KEYBIT, GP_HOME);
     if (fd_ < 0) {
         last_error_ = std::strerror(errno);
         return false;
@@ -58,7 +55,7 @@ bool VirtualGamepad::init() {
         return false;
     }
 
-    int buttons[] = {GP_A, GP_B, GP_X, GP_Y, GP_L1, GP_R1, GP_START, GP_SELECT};
+    int buttons[] = {GP_A, GP_B, GP_X, GP_Y, GP_L1, GP_R1, GP_START, GP_SELECT, GP_L3, GP_R3, GP_HOME};
     for (int button : buttons) {
         if (ioctl(fd_, UI_SET_KEYBIT, button) < 0) {
             last_error_ = std::strerror(errno);

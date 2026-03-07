@@ -8,6 +8,35 @@
 
 The executable built by this repo is `virtual_remote_server`.
 
+## Virtual Linux Remote 🎮
+
+## System Architecture
+
+![System Architecture](docs/demo/Welcome%20to%20FigJam%20%281%29.png)
+
+## Server Initialization & Runtime Flow
+
+![Server Initialization and Runtime Flow](docs/demo/Untitled%20%283%29.png)
+
+## Discovery Protocol
+
+![Discovery Protocol](docs/demo/Untitled%20%284%29.png)
+
+## Demo Screenshots
+
+![Demo Screenshot 1](docs/demo/Screenshot%20from%202026-03-07%2020-27-21.png)
+![Demo Screenshot 2](docs/demo/Screenshot%20from%202026-03-07%2020-28-00.png)
+![Demo Screenshot 3](docs/demo/Screenshot%20from%202026-03-07%2020-28-26.png)
+![Demo Screenshot 4](docs/demo/Screenshot%20from%202026-03-07%2020-30-06.png)
+
+## Demo Videos
+
+Add demo video files under `docs/demo/` (for example: `demo.mp4`) and embed them here using:
+
+```md
+[Watch demo video](docs/demo/demo.mp4)
+```
+
 ## What Is Implemented (Verified from Source)
 
 - Binary controller protocol (`ControllerPacketV1`, 36 bytes), not text commands.
