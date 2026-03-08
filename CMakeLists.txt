@@ -11,6 +11,7 @@ add_executable(virtual_remote_server
     src/controller_engine.cpp
     src/discovery_service.cpp
     src/tcp_feedback_server.cpp
+    src/rumble_manager.cpp
 )
 
 target_include_directories(virtual_remote_server PRIVATE src)

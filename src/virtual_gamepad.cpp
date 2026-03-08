@@ -4,14 +4,16 @@
 #include <linux/uinput.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
 
+
 #include "gamepad_mapping.h"
 
-VirtualGamepad::VirtualGamepad() : fd_(-1) {}
+VirtualGamepad::VirtualGamepad(TcpFeedbackServer* feedback_server)
+    : fd_(-1), feedback_server_(feedback_server) {}
 
 VirtualGamepad::~VirtualGamepad() {
     if (fd_ >= 0) {
@@ -44,13 +46,13 @@ bool VirtualGamepad::setupAbsAxis(int axis, int min, int max) {
 }
 
 bool VirtualGamepad::init() {
-    fd_ = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
+    fd_ = open("/dev/uinput", O_RDWR | O_NONBLOCK);
     if (fd_ < 0) {
         last_error_ = std::strerror(errno);
         return false;
     }
 
-    if (ioctl(fd_, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd_, UI_SET_EVBIT, EV_ABS) < 0) {
+    if (ioctl(fd_, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd_, UI_SET_EVBIT, EV_ABS) < 0 || ioctl(fd_, UI_SET_EVBIT, EV_FF) <0 ||ioctl(fd_, UI_SET_FFBIT, FF_RUMBLE)< 0 ) {
         last_error_ = std::strerror(errno);
         return false;
     }
@@ -59,6 +61,7 @@ bool VirtualGamepad::init() {
     for (int button : buttons) {
         if (ioctl(fd_, UI_SET_KEYBIT, button) < 0) {
             last_error_ = std::strerror(errno);
+            std::cout << "Failed to set button bit for button " << button << ": " << last_error_ << "\n";
             return false;
         }
     }
@@ -67,6 +70,7 @@ bool VirtualGamepad::init() {
         !setupAbsAxis(GP_RX, -32768, 32767) || !setupAbsAxis(GP_RY, -32768, 32767) ||
         !setupAbsAxis(GP_DPAD_X, -1, 1) || !setupAbsAxis(GP_DPAD_Y, -1, 1) ||
         !setupAbsAxis(GP_L2, 0, 255) || !setupAbsAxis(GP_R2, 0, 255)) {
+            std::cout << "Failed to setup axes: " << last_error_ << "\n";
         return false;
     }
 
@@ -74,13 +78,19 @@ bool VirtualGamepad::init() {
     usetup.id.bustype = BUS_USB;
     usetup.id.vendor = 0x1234;
     usetup.id.product = 0x5678;
+    usetup.id.version = 1;
+    usetup.ff_effects_max = 16; 
     std::strncpy(usetup.name, "Virtual Remote Gamepad", UINPUT_MAX_NAME_SIZE - 1);
 
-    if (ioctl(fd_, UI_DEV_SETUP, &usetup) < 0 || ioctl(fd_, UI_DEV_CREATE) < 0) {
-        last_error_ = std::strerror(errno);
+    if (ioctl(fd_, UI_DEV_SETUP, &usetup) < 0) {
+        last_error_ = std::string("UI_DEV_SETUP failed: ") + std::strerror(errno);
         return false;
     }
 
+    if (ioctl(fd_, UI_DEV_CREATE) < 0) {
+        last_error_ = std::string("UI_DEV_CREATE failed: ") + std::strerror(errno);
+        return false;
+    }
     usleep(250000);
     return true;
 }
@@ -111,4 +121,57 @@ void VirtualGamepad::sync() {
 
 std::string VirtualGamepad::lastError() const {
     return last_error_;
+}
+
+int VirtualGamepad::mapRumbleToStrength(uint16_t strong, uint16_t weak) {
+    uint16_t combined = std::max(strong, weak);
+    return (combined * 255) / 65535;
+}
+
+void VirtualGamepad::handlePlayEffect(int effect_id) {
+    RumbleEffect effect;
+    if (!rumble_manager_.getRumbleEffect(effect_id, effect)) {
+        return;
+    }
+
+    int strength = mapRumbleToStrength(effect.strong, effect.weak);
+
+    std::cout << "[FF] play effect id=" << effect_id
+              << " strong=" << effect.strong
+              << " weak=" << effect.weak
+              << " duration=" << effect.duration_ms
+              << " mapped_strength=" << strength << "\n";
+
+    if (feedback_server_) {
+        feedback_server_->sendVibration(effect.duration_ms, strength);
+    }
+}
+
+void VirtualGamepad::processForceFeedback() {
+    while (true) {
+        struct input_event ev {};
+        ssize_t n = read(fd_, &ev, sizeof(ev));
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+            std::cout << "[FF] read failed: " << std::strerror(errno) << "\n";
+            break;
+        }
+
+        if (n != sizeof(ev)) {
+            continue;
+        }
+
+        if (ev.type == EV_FF) {
+            if (ev.value > 0) {
+                handlePlayEffect(ev.code);
+            } else if (ev.value == 0) {
+                if (feedback_server_) {
+                    feedback_server_->sendVibration(0, 0);
+                }
+            }
+        }
+    }
 }
