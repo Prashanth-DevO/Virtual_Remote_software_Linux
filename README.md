@@ -45,10 +45,6 @@ The executable built by this repo is `virtual_remote_server`.
 - Per-IP discovery response rate limiting (~1 response / 150 ms).
 - Virtual gamepad axes/buttons mapped to Linux input event codes.
 
-## Important Current Limitation
-
-The TCP feedback server exists in code (`TcpFeedbackServer` on port `9001`) but is not started or used by `main`, so vibration forwarding is currently not active in runtime.
-
 ## Project Layout
 
 - `CMakeLists.txt`: builds single target `virtual_remote_server` with C++17.
@@ -60,14 +56,12 @@ The TCP feedback server exists in code (`TcpFeedbackServer` on port `9001`) but 
 - `src/udp_receiver.h/.cpp`: UDP socket bind + datagram receive wrapper for control traffic.
 - `src/discovery_protocol.h`: packed binary discovery request/response structs and flags.
 - `src/discovery_service.h/.cpp`: UDP discovery socket thread, validation, status response building.
-- `src/tcp_feedback_server.h/.cpp`: optional TCP client accept loop and `VIBRATE:<ms>:<strength>\n` sender.
 - `include/`: currently empty.
 
 ## Network Ports
 
 - `9000/udp`: control packets (`ControllerPacketV1`).
 - `9002/udp`: discovery (`DiscoverReqV1` -> `DiscoverRespV1`).
-- `9001/tcp`: defined for feedback in status/structs and `TcpFeedbackServer`, but not currently started from `main`.
 
 ## Control Packet Format (`src/protocol.h`)
 
@@ -153,7 +147,7 @@ Response (`DiscoverRespV1`):
 - `nonce` (echoed from request)
 - `server_id`
 - `control_port`
-- `feedback_port`
+- `reserved_port` (currently `0`, reserved for protocol compatibility)
 - `proto_ver`
 - `name_len`
 - `flags`
@@ -161,7 +155,6 @@ Response (`DiscoverRespV1`):
 
 Flags currently used:
 - `kFlagPairedLocked` set when controller engine is locked.
-- `kFlagSupportsFeedback` and `kFlagSupportsRumble` are defined but not set by current `main` status callback.
 
 ## Build
 

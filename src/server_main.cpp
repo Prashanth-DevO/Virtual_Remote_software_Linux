@@ -6,19 +6,11 @@
 #include "controller_engine.h"
 #include "protocol.h"
 
-#include "discovery_service.h"   
-#include "discovery_protocol.h"  
-
-#include "tcp_feedback_server.h"
+#include "discovery_service.h"   // NEW
+#include "discovery_protocol.h"  // NEW
 
 int main() {
-    TcpFeedbackServer feedback_server;
-    if(!feedback_server.start(9001)) {
-        std::cout << "Feedback server failed to start: " << feedback_server.lastError() << "\n";
-        return 1;
-    }
-
-    VirtualGamepad gp(&feedback_server);
+    VirtualGamepad gp;
     if (!gp.init()) {
         std::cout << "Gamepad init failed\n";
         return 1;
@@ -37,7 +29,6 @@ int main() {
         st.paired_locked = engine.isPairedLocked();
 
         st.control_port = 9000;
-        st.feedback_port = 9001;
         st.controller_proto_ver = 1;
         st.flags = 0;
         st.name = "linux-joystick";
@@ -56,13 +47,12 @@ int main() {
     std::cout << "Server running:\n";
     std::cout << "  UDP control   : 9000\n";
     std::cout << "  UDP discovery : 9002\n";
-    std::cout << "  TCP feedback  : 9001\n";
+
     while (true) {
         int n = udp.receive(&pkt, sizeof(pkt), &sender);
         if (n > 0) {
             engine.processPacket(&pkt, n, sender);
         }
-        gp.processForceFeedback();
     }
 
     discovery.stop();

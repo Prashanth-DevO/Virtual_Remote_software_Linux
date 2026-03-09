@@ -29,7 +29,7 @@ struct DiscoverRespV1 {
     uint32_t nonce;       // copied from request
     uint64_t server_id;   // stable-ish
     uint16_t control_port;// 9000
-    uint16_t feedback_port;// 9001
+    uint16_t reserved_port;// reserved, set to 0
     uint16_t proto_ver;   // your ControllerPacketV1 version (e.g. 1)
     uint16_t name_len;    // bytes following (max 64)
     uint32_t flags;       // bitmask
@@ -41,8 +41,8 @@ static constexpr uint16_t kMaxNameLen = 64;
 
 // flags
 enum DiscFlags : uint32_t {
-    kFlagSupportsFeedback = 1u << 0,
-    kFlagSupportsRumble   = 1u << 1,
+    kFlagReserved0        = 1u << 0,
+    kFlagReserved1        = 1u << 1,
     kFlagPairedLocked     = 1u << 2,
 };
 

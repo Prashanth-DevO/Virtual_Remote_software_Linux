@@ -77,8 +77,7 @@ static uint64_t htonll_u(uint64_t v) {
 }
 
 static std::string makeLegacyReply(const ServerStatus& st) {
-    return "CONTROLLER_AVAILABLE;udp=" + std::to_string(st.control_port) +
-           ";tcp=" + std::to_string(st.feedback_port);
+    return "CONTROLLER_AVAILABLE;udp=" + std::to_string(st.control_port);
 }
 
 // -------------------- DiscoveryService --------------------
@@ -220,7 +219,7 @@ void DiscoveryService::runLoop() {
         resp.nonce = req_nonce;
         resp.server_id = st.server_id;
         resp.control_port = st.control_port;
-        resp.feedback_port = st.feedback_port;
+        resp.reserved_port = 0;
         resp.proto_ver = st.controller_proto_ver;
         resp.name_len = (uint16_t)name.size();
         resp.flags = flags;
@@ -231,7 +230,7 @@ void DiscoveryService::runLoop() {
             resp.nonce = htonl(resp.nonce);
             resp.server_id = htonll_u(resp.server_id);
             resp.control_port = htons(resp.control_port);
-            resp.feedback_port = htons(resp.feedback_port);
+            resp.reserved_port = htons(resp.reserved_port);
             resp.proto_ver = htons(resp.proto_ver);
             resp.name_len = htons(resp.name_len);
             resp.flags = htonl(resp.flags);

@@ -10,7 +10,6 @@ namespace lj {
 struct ServerStatus {
     bool paired_locked = false;
     uint16_t control_port = 9000;
-    uint16_t feedback_port = 9001;
     uint16_t controller_proto_ver = 1;
     uint32_t flags = 0;
     uint64_t server_id = 0;
