@@ -12,4 +12,4 @@ add_executable(virtual_remote_server
     src/discovery_service.cpp
 )
 
-target_include_directories(virtual_remote_server PRIVATE src)
+target_include_directories(virtual_remote_server PRIVATE include)
