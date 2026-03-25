@@ -1,5 +1,5 @@
-#include "discovery_service.h"
-#include "discovery_protocol.h"
+#include "../include/discovery_service.h"
+#include "../include/discovery_protocol.h"
 
 #include <arpa/inet.h>
 #include <errno.h>

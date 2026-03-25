@@ -1,13 +1,13 @@
 #include <iostream>
 #include <unistd.h>
 
-#include "virtual_gamepad.h"
-#include "udp_receiver.h"
-#include "controller_engine.h"
-#include "protocol.h"
+#include "../include/virtual_gamepad.h"
+#include "../include/udp_receiver.h"
+#include "../include/controller_engine.h"
+#include "../include/protocol.h"
 
-#include "discovery_service.h"   // NEW
-#include "discovery_protocol.h"  // NEW
+#include "../include/discovery_service.h"  
+#include "../include/discovery_protocol.h" 
 
 int main() {
     VirtualGamepad gp;

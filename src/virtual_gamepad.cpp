@@ -1,4 +1,4 @@
-#include "virtual_gamepad.h"
+#include "../include/virtual_gamepad.h"
 
 #include <fcntl.h>
 #include <linux/uinput.h>
@@ -9,7 +9,7 @@
 #include <cstring>
 #include <iostream>
 
-#include "gamepad_mapping.h"
+#include "../include/gamepad_mapping.h"
 
 VirtualGamepad::VirtualGamepad() : fd_(-1) {}
 

@@ -1,6 +1,6 @@
-#include "controller_engine.h"
-#include "protocol.h"
-#include "gamepad_mapping.h"
+#include "../include/controller_engine.h"
+#include "../include/protocol.h"
+#include "../include/gamepad_mapping.h"
 
 #include <cstring>
 #include <iostream>
