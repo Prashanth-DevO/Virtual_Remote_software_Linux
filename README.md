@@ -32,135 +32,26 @@ The executable built by this repo is `virtual_remote_server`.
 ![Demo Screenshot 6](docs/demo/vechicle_surface.jpeg)
 
 
-## What Is Implemented (Verified from Source)
+## Key Features
 
-- Binary controller protocol (`ControllerPacketV1`, 36 bytes), not text commands.
-- UDP control receiver on port `9000`.
-- Pair-lock to first sender IP until timeout.
-- Input watchdog:
-  - >200 ms silence: send neutral state.
-  - >2000 ms silence: unlock paired IP and neutral again.
-- UDP discovery service on port `9002` with request/response structs.
-- Stable `server_id` generation from `/etc/machine-id` hash (fallback string if missing).
-- Per-IP discovery response rate limiting (~1 response / 150 ms).
-- Virtual gamepad axes/buttons mapped to Linux input event codes.
+- Binary UDP controller input on `9000/udp`.
+- UDP discovery service on `9002/udp`.
+- Virtual gamepad output via `/dev/uinput`.
+- Sender pair-lock with timeout-based unlock.
+- Input watchdog that falls back to neutral state on silence.
 
 ## Project Layout
 
-- `CMakeLists.txt`: builds single target `virtual_remote_server` with C++17.
-- `src/server_main.cpp`: process entry point, starts gamepad + UDP control + discovery service.
-- `src/protocol.h`: packed binary control packet definition and button bit assignments.
-- `src/controller_engine.h/.cpp`: packet validation, pairing lock, watchdog timeout, and input dispatch.
-- `src/gamepad_mapping.h`: mapping from protocol controls to Linux `EV_KEY` / `EV_ABS` codes.
-- `src/virtual_gamepad.h/.cpp`: `/dev/uinput` setup, device creation/destruction, event emission.
-- `src/udp_receiver.h/.cpp`: UDP socket bind + datagram receive wrapper for control traffic.
-- `src/discovery_protocol.h`: packed binary discovery request/response structs and flags.
-- `src/discovery_service.h/.cpp`: UDP discovery socket thread, validation, status response building.
-- `include/`: currently empty.
-
-## Network Ports
-
-- `9000/udp`: control packets (`ControllerPacketV1`).
-- `9002/udp`: discovery (`DiscoverReqV1` -> `DiscoverRespV1`).
-
-## Control Packet Format (`src/protocol.h`)
-
-`ControllerPacketV1` is `#pragma pack(push, 1)` and must be exactly 36 bytes.
-
-Fields:
-- `magic` (`uint32_t`): must equal `0x4F494E55` (`UNIO_MAGIC`).
-- `version` (`uint16_t`): must equal `1`.
-- `size` (`uint16_t`): must equal `sizeof(ControllerPacketV1)` (36).
-- `seq` (`uint32_t`): sequence number.
-- `ts_us` (`uint64_t`): timestamp in microseconds (client-provided).
-- `lx, ly, rx, ry` (`int16_t`): stick axes in `-32768..32767`.
-- `l2, r2` (`uint8_t`): trigger values in `0..255`.
-- `dpad_x, dpad_y` (`int8_t`): each in `-1, 0, 1`.
-- `buttons` (`uint32_t`): bitmask using `ButtonBits` enum.
-
-Button bits:
-- 0 `A`
-- 1 `B`
-- 2 `X`
-- 3 `Y`
-- 4 `L1`
-- 5 `R1`
-- 6 `L3`
-- 7 `R3`
-- 8 `SELECT`
-- 9 `START`
-- 10 `HOME` (defined in protocol, currently not applied in `ControllerEngine`)
-
-## Controller Engine Behavior
-
-`ControllerEngine::processPacket`:
-1. Applies watchdog logic based on time since last valid packet.
-2. Rejects packets shorter than 36 bytes.
-3. Copies packet bytes and validates `magic/version/size`.
-4. Pair-locks to first sender IP after unlocked state.
-5. Rejects packets from other IPs while locked.
-6. Sends all axes and button states to virtual gamepad.
-7. Issues `sync()` after each accepted packet.
-
-Neutral state sets:
-- All sticks to `0`.
-- Triggers to `0`.
-- D-pad to `0`.
-- Buttons `A/B/X/Y/L1/R1/L3/R3/SELECT/START` to released.
-
-## Virtual Gamepad Details
-
-Device path:
-- `/dev/uinput` opened with `O_WRONLY | O_NONBLOCK`.
-
-Enabled event types:
-- `EV_KEY`
-- `EV_ABS`
-
-Buttons enabled:
-- `GP_A`, `GP_B`, `GP_X`, `GP_Y`
-- `GP_L1`, `GP_R1`
-- `GP_START`, `GP_SELECT`
-- `GP_L3`, `GP_R3`, `GP_HOME`
-
-Axes configured:
-- `GP_LX`, `GP_LY`, `GP_RX`, `GP_RY`: `-32768..32767`
-- `GP_DPAD_X`, `GP_DPAD_Y`: `-1..1`
-- `GP_L2`, `GP_R2`: `0..255`
-
-uinput identity:
-- Name: `Virtual Remote Gamepad`
-- Bus: `BUS_USB`
-- Vendor/Product: `0x1234 / 0x5678`
-
-## Discovery Protocol
-
-Magic/version:
-- `kDiscoveryMagic = 0x53444A4C` (`LJDS` in little-endian bytes)
-- `kDiscoveryVersion = 1`
-
-Request (`DiscoverReqV1`):
-- `magic`, `version`, `msg_type=DiscoverReq`, `reserved`, `nonce`
-
-Response (`DiscoverRespV1`):
-- `magic`, `version`, `msg_type=DiscoverResp`, `reserved`
-- `nonce` (echoed from request)
-- `server_id`
-- `control_port`
-- `reserved_port` (currently `0`, reserved for protocol compatibility)
-- `proto_ver`
-- `name_len`
-- `flags`
-- followed by `name` bytes (not null-terminated, max 64)
-
-Flags currently used:
-- `kFlagPairedLocked` set when controller engine is locked.
+- `src/`: runtime implementation (`server_main`, controller engine, UDP receiver, discovery service, virtual gamepad).
+- `include/`: protocol, mapping, and public headers used by the server sources.
+- `docs/demo/`: architecture diagrams and demo screenshots.
+- `CMakeLists.txt`: builds `virtual_remote_server` with C++17.
 
 ## Build
 
 ```bash
 cmake -S . -B build
-cmake --build build -j
+cmake --build build
 ```
 
 ## Run
@@ -173,10 +64,4 @@ sudo ./build/virtual_remote_server
 
 ## Runtime Output
 
-On successful start, server prints:
-- `Server running:`
-- `UDP control   : 9000`
-- `UDP discovery : 9002`
-
-On first accepted controller sender, stderr logs lock event:
-- `[lock] locking to ip=<numeric_ipv4_value>`
+On successful start, the server prints its control and discovery ports and then waits for controller traffic.
