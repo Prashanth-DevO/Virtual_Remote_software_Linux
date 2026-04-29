@@ -3,7 +3,6 @@
 #include "../include/gamepad_mapping.h"
 
 #include <cstring>
-#include <iostream>
 #include <arpa/inet.h>
 #include <sys/time.h>
 

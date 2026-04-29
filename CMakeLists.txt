@@ -20,6 +20,7 @@ qt_add_executable(Game_Remote_Server
     core/src/discovery_service.cpp
     core/src/udp_receiver.cpp
     core/src/virtual_gamepad.cpp
+    core/src/server_main.cpp
 
     core/include/utils.h
     core/include/controller_engine.h
@@ -29,6 +30,7 @@ qt_add_executable(Game_Remote_Server
     core/include/protocol.h
     core/include/udp_receiver.h
     core/include/virtual_gamepad.h
+    core/include/server_main.h
 )
 
 target_link_libraries(Game_Remote_Server

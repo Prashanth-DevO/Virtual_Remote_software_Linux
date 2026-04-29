@@ -4,21 +4,23 @@
 #include "../include/udp_receiver.h"
 #include "../include/controller_engine.h"
 #include "../include/protocol.h"
+#include "../include/discovery_service.h"
+#include "../include/server_main.h"
 
-#include "../include/discovery_service.h"  
-#include "../include/discovery_protocol.h" 
+#include "QThread"
 
-int main() {
+void Server::startServer() {
+    running = true;
     VirtualGamepad gp;
     if (!gp.init()) {
-        // std::cout << "Gamepad init failed\n";
-        return 1;
+        emit sendData1("Gamepad init failed");
+        return ;
     }
 
     UdpReceiver udp;
     if (!udp.start(9000)) {
-        // std::cout << "UDP bind failed\n";
-        return 1;
+        emit sendData1("UDP bind failed\n");
+        return ;
     }
 
     ControllerEngine engine(&gp);
@@ -36,24 +38,26 @@ int main() {
     });
 
     if (!discovery.start()) {
-        // std::cout << "Discovery bind failed (UDP 9002)\n";
-        return 1;
+        emit sendData1("Discovery bind failed (UDP 9002)\n");
+        return ;
     }
 
     ControllerPacketV1 pkt{};
     sockaddr_in sender{};
 
-    // std::cout << "Server running:\n";
-    // std::cout << "  UDP control   : 9000\n";
-    // std::cout << "  UDP discovery : 9002\n";
+    emit sendData1("GAMEPAD INITIALIZATION SUCCESS");
 
-    while (true) {
+    while (running) {
         int n = udp.receive(&pkt, sizeof(pkt), &sender);
         if (n > 0) {
             engine.processPacket(&pkt, n, sender);
         }
     }
-
     discovery.stop();
-    return 0;
+    emit sendData1("Server Stopped");
+    return ;
+}
+
+void Server::stopServer(){
+    running = false;
 }
