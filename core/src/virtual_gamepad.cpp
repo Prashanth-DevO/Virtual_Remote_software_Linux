@@ -7,7 +7,6 @@
 
 #include <cerrno>
 #include <cstring>
-#include <iostream>
 
 #include "../include/gamepad_mapping.h"
 

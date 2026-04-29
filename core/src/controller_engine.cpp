@@ -72,7 +72,7 @@ bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_i
         authorized_ip = ip;
         locked_.store(true, std::memory_order_release);
         is_locked = true;
-        std::cerr << "[lock] locking to ip=" << ip << "\n";
+        // std::cerr << "[lock] locking to ip=" << ip << "\n";
     }
 
     if (is_locked && ip != authorized_ip) {

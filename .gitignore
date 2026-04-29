@@ -50,14 +50,15 @@ client
 *.swp
 *.swo
 *~
-core
-core.*
+
 
 # ==============================
 # Editor / IDE
 # ==============================
 .vscode/
 .idea/
+.qtcreator/
+*.user
 
 # ==============================
 # OS junk

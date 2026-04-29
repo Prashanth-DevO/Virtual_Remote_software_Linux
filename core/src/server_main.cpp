@@ -1,4 +1,3 @@
-#include <iostream>
 #include <unistd.h>
 
 #include "../include/virtual_gamepad.h"
@@ -12,13 +11,13 @@
 int main() {
     VirtualGamepad gp;
     if (!gp.init()) {
-        std::cout << "Gamepad init failed\n";
+        // std::cout << "Gamepad init failed\n";
         return 1;
     }
 
     UdpReceiver udp;
     if (!udp.start(9000)) {
-        std::cout << "UDP bind failed\n";
+        // std::cout << "UDP bind failed\n";
         return 1;
     }
 
@@ -37,16 +36,16 @@ int main() {
     });
 
     if (!discovery.start()) {
-        std::cout << "Discovery bind failed (UDP 9002)\n";
+        // std::cout << "Discovery bind failed (UDP 9002)\n";
         return 1;
     }
 
     ControllerPacketV1 pkt{};
     sockaddr_in sender{};
 
-    std::cout << "Server running:\n";
-    std::cout << "  UDP control   : 9000\n";
-    std::cout << "  UDP discovery : 9002\n";
+    // std::cout << "Server running:\n";
+    // std::cout << "  UDP control   : 9000\n";
+    // std::cout << "  UDP discovery : 9002\n";
 
     while (true) {
         int n = udp.receive(&pkt, sizeof(pkt), &sender);
