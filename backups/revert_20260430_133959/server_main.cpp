@@ -8,6 +8,7 @@
 #include "../include/server_main.h"
 
 #include <QThread>
+#include <QCoreApplication>
 
 void Server::startServer() {
     running.store(true, std::memory_order_relaxed);
@@ -51,16 +52,19 @@ void Server::startServer() {
         int n = udp.receive(&pkt, sizeof(pkt), &sender);
         if (n > 0) {
             engine.processPacket(&pkt, n, sender);
-        } else {
-            QThread::msleep(10);
         }
+        else{
+            QThread::msleep(1);
+        }
+        QCoreApplication::processEvents();
     }
     udp.stop();
     discovery.stop();
     emit sendData1("Server Stopped");
+    emit serverStopped();
     return ;
 }
 
 void Server::stopServer(){
-    running.store(false, std::memory_order_relaxed);
+    requestStop();
 }

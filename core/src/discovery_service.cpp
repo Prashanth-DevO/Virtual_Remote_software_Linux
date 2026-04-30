@@ -10,7 +10,9 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
+#include <cerrno>
 #include <fstream>
+#include <fcntl.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -94,6 +96,11 @@ bool DiscoveryService::setupSocket() {
         return false;
     }
 
+    int flags = ::fcntl(sock_, F_GETFL, 0);
+    if (flags >= 0) {
+        ::fcntl(sock_, F_SETFL, flags | O_NONBLOCK);
+    }
+
     int one = 1;
     ::setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
     ::setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one));
@@ -154,6 +161,9 @@ void DiscoveryService::runLoop() {
 
         if (n < 0) {
             if (!running_.load()) break;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
             continue;
         }
 

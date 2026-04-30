@@ -17,9 +17,10 @@ MainWindow::~MainWindow()
 {
     if (thread) {
         if (server) {
-            server->stopServer();
+            server->requestStop();
         }
         thread->quit();
+        thread->wait();
     }
     delete ui;
 }
@@ -46,6 +47,8 @@ void MainWindow::on_systemStart_clicked()
         ui->logs_text->appendPlainText(msg);
     });
 
+    connect(server, &Server::serverStopped, thread, &QThread::quit);
+
     connect(thread, &QThread::finished, server, &QObject::deleteLater);
     connect(thread, &QThread::finished, thread, &QObject::deleteLater);
     connect(thread, &QThread::finished, this, [this]() {
@@ -60,7 +63,8 @@ void MainWindow::on_systemStop_clicked()
 {
     if(!server || !thread) return ;
 
-    server->stopServer();
+    server->requestStop();
     thread->quit();
+
 }
 
