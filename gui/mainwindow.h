@@ -27,6 +27,8 @@ private slots:
 
     void on_systemStop_clicked();
 
+    void on_clearLogBtn_clicked();
+
 private:
     Ui::MainWindow *ui;
     Server *server = nullptr;

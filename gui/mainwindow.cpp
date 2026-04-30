@@ -64,3 +64,9 @@ void MainWindow::on_systemStop_clicked()
     thread->quit();
 }
 
+
+void MainWindow::on_clearLogBtn_clicked()
+{
+    ui->logs_text->clear();
+}
+
