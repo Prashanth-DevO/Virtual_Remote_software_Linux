@@ -24,6 +24,7 @@ void Server::startServer() {
     }
 
     ControllerEngine engine(&gp);
+    connect(&engine, &ControllerEngine::sendData1, this, &Server::sendData1);
 
     lj::DiscoveryService discovery(9002, [&] {
         lj::ServerStatus st;
@@ -36,6 +37,7 @@ void Server::startServer() {
         st.server_id = 0;
         return st;
     });
+    connect(&discovery, &lj::DiscoveryService::sendData1 , this ,&Server::sendData1);
 
     if (!discovery.start()) {
         emit sendData1("Discovery bind failed (UDP 9002)\n");

@@ -93,6 +93,7 @@ bool DiscoveryService::setupSocket() {
     sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_ < 0) {
         // std::cerr << "[discovery] socket() failed: " << strerror(errno) << "\n";
+        sendData1(QString("[discovery] socket() failed: ") + strerror(errno) + "\n");
         return false;
     }
 
@@ -113,6 +114,10 @@ bool DiscoveryService::setupSocket() {
     if (::bind(sock_, (sockaddr*)&addr, sizeof(addr)) < 0) {
         // std::cerr << "[discovery] bind() failed on port " << port_
         //           << ": " << strerror(errno) << "\n";
+        sendData1(QString("[discovery] bind() failed on port %1: %2\n")
+                      .arg(port_)
+                      .arg(strerror(errno)));
+
         ::close(sock_);
         sock_ = -1;
         return false;
@@ -124,9 +129,9 @@ bool DiscoveryService::setupSocket() {
 bool DiscoveryService::start() {
     if (running_.load()) return true;
     if (!setupSocket()) return false;
-
     running_.store(true);
     th_ = std::thread(&DiscoveryService::runLoop, this);
+    sendData1("Dicovery Server thread initialized successfully ...");
     return true;
 }
 

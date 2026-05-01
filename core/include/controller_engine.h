@@ -1,10 +1,12 @@
 #pragma once
 #include "virtual_gamepad.h"
+#include "server_main.h"
 #include <netinet/in.h>
 #include <cstdint>
 #include <atomic>
 
-class ControllerEngine {
+class ControllerEngine : public QObject {
+    Q_OBJECT
 public:
     explicit ControllerEngine(VirtualGamepad* gp);
 
@@ -14,10 +16,11 @@ public:
     bool isPairedLocked() const {
         return locked_.load(std::memory_order_acquire);
     }
-
+signals:
+    void sendData1(QString);
 private:
     VirtualGamepad* gamepad;
-
+    Server server;
     // pairing + watchdog
     std::atomic<bool> locked_{false};   // was bool locked
     uint32_t authorized_ip = 0;         // sender.sin_addr.s_addr (written in UDP thread only)

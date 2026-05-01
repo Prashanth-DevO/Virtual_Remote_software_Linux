@@ -5,6 +5,9 @@
 #include <string>
 #include <thread>
 
+#include <QThread>
+#include "server_main.h"
+
 namespace lj {
 
 struct ServerStatus {
@@ -16,7 +19,8 @@ struct ServerStatus {
     std::string name;
 };
 
-class DiscoveryService {
+class DiscoveryService : public QObject{
+    Q_OBJECT
 public:
     using StatusFn = std::function<ServerStatus()>;
 
@@ -26,9 +30,14 @@ public:
     bool start();
     void stop();
 
+signals:
+    void sendData1(QString);
+
 private:
     void runLoop();
     bool setupSocket();
+
+    Server server;
 
     uint16_t port_;
     StatusFn status_fn_;
