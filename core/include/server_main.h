@@ -15,6 +15,7 @@ class Server : public QObject {
     void stopServer();
     signals:
     void sendData1(QString);
+    void sendIP(uint32_t);
 };
 
 #endif // SERVER_MAIN_CPP

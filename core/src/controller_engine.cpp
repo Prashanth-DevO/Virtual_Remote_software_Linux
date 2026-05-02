@@ -43,7 +43,6 @@ void ControllerEngine::neutral() {
 
 bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_in& sender) {
     const uint64_t now = nowUs();
-    int noOfPkt =0;
     // watchdog: neutral if silent, unlock after longer silence
     if (lastPacketUs != 0) {
         const uint64_t diffMs = (now - lastPacketUs) / 1000ULL;
@@ -72,12 +71,14 @@ bool ControllerEngine::processPacket(const void* data, int len, const sockaddr_i
         authorized_ip = ip;
         locked_.store(true, std::memory_order_release);
         is_locked = true;
+        sendIP(ip);
         // std::cerr << "[lock] locking to ip=" << ip << "\n";
         sendData1(QString("[lock] locking to ip=%1").arg(ntohl(ip)));
     }
 
     if (is_locked && ip != authorized_ip) {
         // ignore packets from other IPs while locked
+
         return false;
     }
     lastPacketUs = now;

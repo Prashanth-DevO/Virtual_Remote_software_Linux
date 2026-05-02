@@ -18,6 +18,7 @@ public:
     }
 signals:
     void sendData1(QString);
+    void sendIP(uint32_t);
 private:
     VirtualGamepad* gamepad;
     Server server;

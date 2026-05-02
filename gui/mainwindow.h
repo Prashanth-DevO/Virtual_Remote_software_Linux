@@ -19,6 +19,8 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
+    void ipUpdate(uint32_t ip);
+    void logMessage(QString &msg);
 
 private slots:
     void on_get_IP_clicked();

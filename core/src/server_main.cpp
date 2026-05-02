@@ -13,7 +13,7 @@ void Server::startServer() {
     running.store(true, std::memory_order_relaxed);
     VirtualGamepad gp;
     if (!gp.init()) {
-        emit sendData1("Gamepad init failed\n try to change the file permession of /dev/uinput to 666\nsudo chmod 666 /dev/uinput");
+        emit sendData1("Gamepad init failed!! Stop the server\n                  try to change the file permession of /dev/uinput to 666\n                  sudo chmod 666 /dev/uinput");
         return ;
     }
 
@@ -25,6 +25,7 @@ void Server::startServer() {
 
     ControllerEngine engine(&gp);
     connect(&engine, &ControllerEngine::sendData1, this, &Server::sendData1);
+    connect(&engine, &ControllerEngine::sendIP, this , &Server::sendIP);
 
     lj::DiscoveryService discovery(9002, [&] {
         lj::ServerStatus st;
