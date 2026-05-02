@@ -218,7 +218,7 @@ border-radius:7px;</string>
       <string notr="true">color:rgb(255, 255, 255)</string>
      </property>
      <property name="text">
-      <string>🖥   Connected IP      </string>
+      <string>      Connected IP      </string>
      </property>
     </widget>
     <widget class="QLabel" name="label_4">
@@ -234,7 +234,7 @@ border-radius:7px;</string>
       <string notr="true">color:rgb(255, 255, 255)</string>
      </property>
      <property name="text">
-      <string>Last Packet             </string>
+      <string> Run Time</string>
      </property>
     </widget>
     <widget class="QLabel" name="connectionStatusLabel">
@@ -269,22 +269,6 @@ border-radius:7px;</string>
       <string>- - - - </string>
      </property>
     </widget>
-    <widget class="QLabel" name="lastPacketLabel">
-     <property name="geometry">
-      <rect>
-       <x>250</x>
-       <y>170</y>
-       <width>121</width>
-       <height>31</height>
-      </rect>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">color:rgb(85, 230, 166)</string>
-     </property>
-     <property name="text">
-      <string>- - - -</string>
-     </property>
-    </widget>
     <widget class="QLabel" name="label_7">
      <property name="geometry">
       <rect>
@@ -304,6 +288,22 @@ border-radius:7px;</string>
      </property>
      <property name="text">
       <string>🔌    CONTROLLER CONNECTION</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="runTimeLabel">
+     <property name="geometry">
+      <rect>
+       <x>250</x>
+       <y>170</y>
+       <width>111</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color:rgb(85, 230, 166)</string>
+     </property>
+     <property name="text">
+      <string>- - - -</string>
      </property>
     </widget>
    </widget>

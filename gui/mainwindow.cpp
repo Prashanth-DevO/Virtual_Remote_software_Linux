@@ -3,6 +3,7 @@
 #include <string>
 #include <QString>
 #include <QDateTime>
+#include <QTimer>
 #include "../core/include/utils.h"
 
 
@@ -31,7 +32,6 @@ void MainWindow::on_get_IP_clicked()
     ui->SystemIPLabel->setText(strIP);
 }
 
-
 void MainWindow::on_systemStart_clicked()
 {
     if(thread && thread->isRunning()) return ;
@@ -41,6 +41,11 @@ void MainWindow::on_systemStart_clicked()
     server->moveToThread(thread);
 
     connect(thread, &QThread::started, server, &Server::startServer);
+
+    elapsedSeconds=0;
+    timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this , &MainWindow::updateTimerDisplay);
+    timer->start(1000);
 
     connect(server, &Server::sendData1, this, [this](QString msg){
         logMessage(msg);
@@ -68,6 +73,9 @@ void MainWindow::on_systemStop_clicked()
     thread->quit();
     ui->ConnectedIPLabel->setText("----");
     ui->connectionStatusLabel->setText("Unpaired");
+    timer->stop();
+    elapsedSeconds=0;
+    updateTimerDisplay();
 }
 
 
@@ -91,3 +99,10 @@ void MainWindow::ipUpdate(uint32_t ip){
     ui->ConnectedIPLabel->setText(ipString);
     ui->connectionStatusLabel->setText("Paired Successfully");
 }
+
+void MainWindow::updateTimerDisplay(){
+    ui->runTimeLabel->setText(QString("%1s").arg(elapsedSeconds));
+    elapsedSeconds++;
+}
+
+

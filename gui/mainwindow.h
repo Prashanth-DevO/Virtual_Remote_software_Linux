@@ -21,6 +21,7 @@ public:
     ~MainWindow() override;
     void ipUpdate(uint32_t ip);
     void logMessage(QString &msg);
+    void updateTimerDisplay();
 
 private slots:
     void on_get_IP_clicked();
@@ -35,5 +36,7 @@ private:
     Ui::MainWindow *ui;
     Server *server = nullptr;
     QThread *thread  = nullptr;
+    QTimer *timer;
+    int elapsedSeconds =0 ;
 };
 #endif // MAINWINDOW_H
